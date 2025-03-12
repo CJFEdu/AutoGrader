@@ -1,0 +1,28 @@
+    <script>
+        function toggleExpand(elementId) {
+            const element = document.getElementById(elementId);
+            const button = event.currentTarget;
+
+            if (element.classList.contains('hidden')) {
+                element.classList.remove('hidden');
+                button.textContent = '▼';
+            } else {
+                element.classList.add('hidden');
+                button.textContent = '▶';
+            }
+        }
+
+        function copyToClipboard(elementId) {
+            const content = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const button = event.currentTarget;
+                const originalText = button.textContent;
+                button.textContent = '✓';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 1000);
+            });
+        }
+    </script>
+</body>
+</html>
