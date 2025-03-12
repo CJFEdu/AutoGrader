@@ -10,7 +10,7 @@ class Config:
     REQUIRED_FILE_NAMES = ["MedianOfMedians", "Partition", "QuickSort", "RadixSort", "Selection"]
     PROVIDED_FILE_NAMES = ["ClosestPairOfPoints", "GenericMergeSort", "IntegerComparator",
         "InversionCounting", "MergeSort", "Point", "PointComparator"]
-    OUTPUT_FILE_NAME = "ExpectedOutput.txt"
+    OUTPUT_FILE_NAME = "ExpectedOutput.txt" #Source file name for expected output
     TEST_HEADERS = [
         "*** Sorting/Selection Test Without Duplicates ***",
         "****************** Two-Index Partition with Duplicates ******************",
