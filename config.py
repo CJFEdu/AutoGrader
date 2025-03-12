@@ -23,29 +23,5 @@ class Config:
     SEARCH_PATTERN_USE_FIRST_NAME_FIRST = False
     CLEAN_START = False
     TIME_CHECK_STRINGS = ["points using divide & conquer strategy ="]    
-    #TIME_CHECK_STRINGS = ["*** Time Test Sorting ***"]
-    IGNORE_NAMES = [
-    # #     "pontytony",
-    #     "andersonmitchell",
-    #     "aroncameron",
-    # #     "barbiannathan",
-    #     "bruskybella",
-    #     "crawfordmatthew",
-    #     "desormeaukade",
-    #     "eggertcarson",
-    #     "eversontrenton",
-    #     "fryconnor",
-    #     "haggertyfletcher",
-    #     "hammbrayden",
-    #     "kurtzjack",
-    #     "leeashley",
-    #     "lomaxnehemiah",
-    #     "mauricemichael",
-    #     "michaelbrian",
-    #     "muthscott",
-    #     "neumannjordan",
-    #     "nguyentommy",
-    #     "nussbailey",
-    #     "patelansh"
-    ]
+    IGNORE_NAMES = []
 
