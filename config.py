@@ -6,22 +6,19 @@ class Config:
     """
     CLASS_NAME = "CompSci 233"
     SECTION = "Section 001"
-    ASSIGNMENT_NAME = "PA1"
-    REQUIRED_FILE_NAMES = ["MedianOfMedians", "Partition", "QuickSort", "RadixSort", "Selection"]
-    PROVIDED_FILE_NAMES = ["ClosestPairOfPoints", "GenericMergeSort", "IntegerComparator",
-        "InversionCounting", "MergeSort", "Point", "PointComparator"]
-    OUTPUT_FILE_NAME = "ExpectedOutput.txt" #Source file name for expected output
+
+    ASSIGNMENT_NAME = "PA2"
+    REQUIRED_FILE_NAMES = ["BinarySearchApplications", "LinkedList", "DynamicArray"]
+    PROVIDED_FILE_NAMES = ["ListNode"]
+    OUTPUT_FILE_NAME = "ExpectedOutput.txt"
+
     TEST_HEADERS = [
-        "*** Sorting/Selection Test Without Duplicates ***",
-        "****************** Two-Index Partition with Duplicates ******************",
-        "****************** Randomized Quick-Sort with Duplicates ******************",
-        "****************** Median of 3 Quick-Sort with Duplicates ******************",
-        "****************** Radix-sort with Duplicates ******************",
-        "****************** Randomized Quick-Select with Duplicates ******************",
-        "****************** Median of Medians with Duplicates ******************",
+        "****************** Finding Predecessor ******************",
+        "****************** Test Linked List Correctness ******************",
+        "****************** Test Dynamic Array Correctness ******************"
     ]
-    SEARCH_PATTERN_USE_FIRST_NAME_FIRST = False
+    SEARCH_PATTERN_USE_FIRST_NAME_FIRST = True
     CLEAN_START = False
-    TIME_CHECK_STRINGS = ["points using divide & conquer strategy ="]    
+    TIME_CHECK_STRINGS = ["End Test Time"]    
     IGNORE_NAMES = []
 

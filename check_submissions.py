@@ -52,6 +52,7 @@ class SubmissionChecker:
         self.submissions_path = os.path.join(self.output_dir, submissions_dir)
         self.results_path = os.path.join(self.output_dir, "results")
         self.full_output_path = os.path.join(self.output_dir, "full_output")
+        self.notes_path = os.path.join(self.output_dir, "notes")
         
         # Initialize Results object (will populate TEST_NAMES later)
         self.results = Results([])
@@ -166,7 +167,7 @@ class SubmissionChecker:
                     
                     # Check if the folder already exists
                     if not os.path.exists(extraction_path):
-                        print(f"Creating folder and extracting submission for: {username} in submissions directory")
+                        # print(f"Creating folder and extracting submission for: {username} in submissions directory")
                         
                         # Create the folder
                         os.makedirs(extraction_path, exist_ok=True)
@@ -195,6 +196,10 @@ class SubmissionChecker:
         """
         # Get submission files
         self.get_submission_files()
+
+        if not os.path.exists(self.notes_path):
+            print(f"Creating notes directory at: {self.notes_path}")
+            os.makedirs(self.notes_path, exist_ok=True)
         
         # Create or clean results directory
         if not os.path.exists(self.results_path):
@@ -258,6 +263,13 @@ class SubmissionChecker:
                 
                 # Look for matching submission
                 submission_file, username, extraction_path = self.find_matching_submission(search_pattern)
+                
+                # Check if a notes file exists for this student, and create one if not
+                if username:
+                    notes_file_path = os.path.join(self.notes_path, f"{username}.txt")
+                    if not os.path.exists(notes_file_path):
+                        # Create an empty notes file
+                        open(notes_file_path, 'w').close()
 
                 # Create Student object
                 student = Student(first_name, last_name, username)
@@ -307,8 +319,12 @@ class SubmissionChecker:
                     test_passed = self.verify_test_pased(test_passed)
 
                     # Add test results to the student
-                    with open(os.path.join(self.full_output_path, f"{username}.txt"), 'r') as f:
-                        student.full_output = f.read()
+                    # output_file_path = os.path.join(self.full_output_path, f"{username}.txt")
+                    # if os.path.exists(output_file_path):
+                    #     with open(output_file_path, 'r') as f:
+                    #         student.full_output = f.read()
+                    # else:
+                    #     student.full_output = "Output file not found. Test may have failed to generate output."
 
                 else:
                     # Student with no submission still gets a Student object
@@ -346,7 +362,7 @@ class SubmissionChecker:
             
             with open(file_path, 'w') as file:
                 file.write(formatted_output)
-            print(f"Results saved to: {os.path.basename(file_path)}")
+            # print(f"Results saved to: {os.path.basename(file_path)}")
         except Exception as e:
             print(f"Error saving results to {file_path}: {e}")
     
@@ -588,10 +604,10 @@ class SubmissionChecker:
             
             # Copy test files, student files, and provided files for the full test
             full_test_file = f"{self.TEST_FILE_NAME}" + file_extension
-            results_message = self.copy_test_files(test_dir, full_test_file, full_test_dir, found_files, extraction_path, results_message)
+            results_message += self.copy_test_files(test_dir, full_test_file, full_test_dir, found_files, extraction_path, results_message)
         except Exception as e:
             results_message += f"Error copying files: {str(e)}\n"
-            print(results_message)
+            print(f"Error copying files: {str(e)}\n")
             self.save_results(username, results_message)
             return 'ERROR'
         
@@ -794,9 +810,21 @@ class SubmissionChecker:
         except Exception as e:
             return False, f"Error comparing results: {str(e)}"
 
-    def compile_cpp(self, dest_test_file, output_file, temp_dir) -> (bool, str):
+    def compile_cpp(self, dest_test_file, temp_dir) -> (bool, str):
+        """
+        Compile a C++ source file.
+        
+        Args:
+            dest_test_file (str): Path to the destination test file
+            temp_dir (str): Path to the temporary directory
             
+        Returns:
+            tuple: (success, message)
+        """
         try:
+            # Generate output file path
+            output_file = os.path.join(temp_dir, 'test')
+            
             compile_process = subprocess.run(
                 ['g++', '-o', output_file, dest_test_file], 
                 stdout=subprocess.PIPE, 
@@ -833,33 +861,89 @@ class SubmissionChecker:
         except Exception as e:
             return (False, f"ERROR - {str(e)}")
     
-    def grade_cpp_submission(self, extraction_path, username):
+    def grade_submission(self, extraction_path, username, language):
         """
-        Grade a C++ submission.
+        Generic submission grading method that handles the common workflow for all languages
         
         Args:
             extraction_path (str): Path to the extracted files
-            student_name (str): Name of the student
+            username (str): Student username
+            language (str): Language type ('cpp', 'java', 'csharp')
             
         Returns:
-            str: Pass/fail status ('PASS', 'FAIL', or 'ERROR')
+            list or bool: Test results
         """
+        # Map language to file extension and compiler function
+        lang_map = {
+            'cpp': ('.h', '.cpp', self.compile_cpp),
+            'java': ('.java', '.java', self.compile_java),
+            'csharp': ('.cs', '.cs', self.compile_csharp)
+        }
+        
+        if language not in lang_map:
+            raise ValueError(f"Unsupported language: {language}")
+            
+        file_ext, test_ext, compile_func = lang_map[language]
+        
         # Results collection
-        results_message = f"Grading C++ submission for {self.results.students[username].get_full_name()}\n\n"
+        results_message = f"Grading {language.upper()} submission for {self.results.students[username].get_full_name()}\n\n"
         
         # Required implementation files
-        required_files = [f"{file_name}.h" for file_name in self.REQUIRED_FILE_NAMES]
+        required_files = [f"{file_name}{file_ext}" for file_name in self.REQUIRED_FILE_NAMES]
+        
+        # Get language-specific directory
+        lang_dir_map = {
+            'cpp': 'CPP',
+            'java': 'JAVA',
+            'csharp': 'C#'
+        }
         
         # Test directory
-        test_dir = os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/CPP")
+        test_dir = os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/{lang_dir_map[language]}")
+        
+        # Special handling for Java package declarations
+        preprocess_func = None
+        if language == 'java':
+            # Check if Java compiler is available
+            try:
+                subprocess.run(["javac", "-version"], capture_output=True, check=True)
+            except (subprocess.SubprocessError, FileNotFoundError):
+                results_message += "Java compiler not found. Please install OpenJDK: sudo apt install openjdk-21-jdk\n"
+                print(results_message)
+                self.save_results(username, results_message)
+                return 'COMPILER_MISSING'
+            preprocess_func = self.java_remove_package
+        elif language == 'csharp':
+            # Check if .NET SDK is available
+            try:
+                check_compiler = subprocess.run(
+                    ['dotnet', '--version'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                
+                if check_compiler.returncode != 0:
+                    results_message += ".NET SDK not found on this system. Cannot compile C# code.\n"
+                    results_message += "To grade C# submissions, please install .NET SDK: https://dotnet.microsoft.com/download\n"
+                    print(results_message)
+                    self.save_results(username, results_message)
+                    return 'COMPILER_MISSING'
+                    
+            except Exception as e:
+                results_message += f"Error checking for .NET SDK: {str(e)}\n"
+                print(f"Error checking for .NET SDK: {str(e)}\n")
+                self.save_results(username, results_message)
+                return 'ERROR'
                 
         # Set up testing environment
-        result = self.setup_testing_environment(extraction_path, required_files, test_dir, username, ".cpp", results_message)
+        result = self.setup_testing_environment(extraction_path, required_files, test_dir, username, test_ext, results_message)
         if isinstance(result, tuple):
             temp_dir, results_message = result
         else:
             # If result is not a tuple, it's a status code indicating an error
             return result
+            
         test_results = []
         test_passed = [False] * self.NUM_TEST_FILES  # Track which tests passed
         
@@ -870,25 +954,33 @@ class SubmissionChecker:
             # Create a separate test directory for each test to avoid naming conflicts
             test_temp_dir = os.path.join(temp_dir, f"test_{i+1}")
             
-            # Compile the test file
+            # Get the full path to the test file in the test directory
+            dest_test_file = os.path.join(test_temp_dir, f"{self.TEST_FILE_NAME}{test_ext}")
             output_file = os.path.join(test_temp_dir, f'test')
             
-            # Get the full path to the test file in the test directory
-            dest_test_file = os.path.join(test_temp_dir, f"{self.TEST_FILE_NAME}.cpp")
-
+            # Preprocess files if needed (e.g., Java package removal)
+            if preprocess_func and language == 'java':
+                for file in os.listdir(test_temp_dir):
+                    if file.endswith(file_ext):
+                        file_path = os.path.join(test_temp_dir, file)
+                        preprocess_func(file_path, file, results_message)
+            
             # Try up to 3 times if we get a timeout
             max_attempts = 3
             attempt = 1
             msg = ""
             while attempt <= max_attempts:
-                test_passed[i], msg = self.compile_cpp(dest_test_file,output_file,test_temp_dir)
+                # All compile functions now take the same parameters
+                test_passed[i], msg = compile_func(dest_test_file, test_temp_dir)
                 
                 if msg != "TIMEOUT" or attempt >= max_attempts:
                     break
                     
                 print(f"Timeout detected for test {i+1}, attempt {attempt} of {max_attempts}. Retrying...")
                 attempt += 1
+                
             test_result_obj = Test(self.TEST_NAMES[i], test_passed[i], msg)
+            
             if test_passed[i]:
                 # Compare output with expected output
                 test_passed[i], error_msg = self.compare_results(msg, os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/expectedoutput{i+1}.txt"))
@@ -899,11 +991,20 @@ class SubmissionChecker:
                     msg = f"FAILED - {error_msg}"
             
             # Check for compiler missing error
-            if not test_passed[i] and "C++ compiler not found" in msg:
-                print(results_message)
-                self.save_results(username, results_message)
-                return 'COMPILER_MISSING'
-
+            if not test_passed[i]:
+                if language == 'cpp' and "C++ compiler not found" in msg:
+                    print(results_message)
+                    self.save_results(username, results_message)
+                    return 'COMPILER_MISSING'
+                elif language == 'java' and "Java compiler not found" in msg:
+                    print(results_message)
+                    self.save_results(username, results_message)
+                    return 'COMPILER_MISSING'
+                elif language == 'java' and "Java runtime not found" in msg:
+                    print(results_message)
+                    self.save_results(username, results_message)
+                    return 'ERROR'
+            
             self.results.students[username].tests.append(test_result_obj)
             test_results.append(msg+"\n")
             
@@ -915,27 +1016,55 @@ class SubmissionChecker:
             
             # Compile the test file
             output_file = os.path.join(full_test_dir, f'test_full')
-            
-            # Get the full path to the test file in the test directory
-            dest_test_file = os.path.join(full_test_dir, f"{self.TEST_FILE_NAME}.cpp")
+            dest_test_file = os.path.join(full_test_dir, f"{self.TEST_FILE_NAME}{test_ext}")
 
-            _, msg = self.compile_cpp(dest_test_file,output_file,full_test_dir)
+            # Preprocess files if needed (e.g., Java package removal)
+            if preprocess_func and language == 'java':
+                for file in os.listdir(full_test_dir):
+                    if file.endswith(file_ext):
+                        file_path = os.path.join(full_test_dir, file)
+                        preprocess_func(file_path, file, results_message)
+            
+            # All compile functions now take the same parameters
+            _, msg = compile_func(dest_test_file, full_test_dir)
+                
             self.results.students[username].full_output = msg
             self.results.students[username].full_output_passed, _ = self.compare_results(msg, os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/expectedoutput.txt"))
 
             f.write(f"{msg}")
         
-        # Format the results
-        for i in range(0, len(test_results), 2):
-            results_message += test_results[i] + "\n"
-            if i+1 < len(test_results):
-                results_message += "  " + test_results[i+1] + "\n\n"
+        # Format the results - slightly different between languages
+        if language == 'cpp':
+            for i in range(0, len(test_results), 2):
+                results_message += test_results[i] + "\n"
+                if i+1 < len(test_results):
+                    results_message += "  " + test_results[i+1] + "\n\n"
+        else:  # Java and C#
+            for i in range(0, len(test_results), 2):
+                if i+1 < len(test_results):
+                    results_message += f"{test_results[i]}{test_results[i+1]}"
+                else:
+                    results_message += f"{test_results[i]}"
+            results_message += "\n"
                 
         # Print and save the results
-        print(results_message)
+        # print(results_message)
         self.save_results(username, results_message)
         
         return test_passed
+        
+    def grade_cpp_submission(self, extraction_path, username):
+        """
+        Grade a C++ submission.
+        
+        Args:
+            extraction_path (str): Path to the extracted files
+            username (str): Name of the student
+            
+        Returns:
+            list or str: Test results or status code
+        """
+        return self.grade_submission(extraction_path, username, 'cpp')
     
     def compile_java(self, dest_test_file, temp_dir) -> (bool, str):
         """Compile a Java source file.
@@ -998,146 +1127,19 @@ class SubmissionChecker:
         
         Args:
             extraction_path (str): Path to the extracted files
-            student_name (str): Name of the student
+            username (str): Name of the student
             
         Returns:
-            str: Pass/fail status ('PASS', 'FAIL', 'ERROR', or 'COMPILER_MISSING')
+            list or str: Test results or status code
         """
-
-        # Results message
-        results_message = f"Grading Java submission for {self.results.students[username].get_full_name()}\n\n"
-        
-        # Required implementation files
-        required_files = [f"{file_name}.java" for file_name in self.REQUIRED_FILE_NAMES]
-        
-        # Source directory for test files
-        test_dir = os.path.join(self.input_dir, self.ASSIGNMENT_NAME, "JAVA")
-        
-        # List to track test results
-        test_results = []
-        test_passed = [False] * self.NUM_TEST_FILES  # Track which tests passed
-        
-        # Check if Java compiler is available
-        try:
-            subprocess.run(["javac", "-version"], capture_output=True, check=True)
-        except (subprocess.SubprocessError, FileNotFoundError):
-            results_message += "Java compiler not found. Please install OpenJDK: sudo apt install openjdk-21-jdk\n"
-            print(results_message)
-            self.save_results(username, results_message)
-            return 'COMPILER_MISSING'
-        
-        # Find required files and set up testing environment
-        result = self.setup_testing_environment(extraction_path, required_files, test_dir, username, ".java", results_message)
-        if isinstance(result, tuple):
-            temp_dir, results_message = result
-        else:
-            # If result is not a tuple, it's a status code indicating an error
-            return result
-        
-        
-        # For each test file
-        for i in range(0, self.NUM_TEST_FILES):
-            test_name = f"{self.TEST_FILE_NAME}{i+1}.java"
-            test_results.append(f"Test {i+1} ({test_name}): ")
-            
-            # Create a separate test directory for each test to avoid naming conflicts
-            test_temp_dir = os.path.join(temp_dir, f"test_{i+1}")
-            
-            # Get the full path to the test file in the test directory
-            dest_test_file = os.path.join(test_temp_dir, f"{self.TEST_FILE_NAME}.java")
-
-            # Check for and remove package declarations from all Java files in the test directory
-            for file in os.listdir(test_temp_dir):
-                if file.endswith('.java'):
-                    file_path = os.path.join(test_temp_dir, file)
-                    # We don't need to update results_message for test files
-                    self.java_remove_package(file_path, file, results_message)
-            
-            # Try up to 3 times if we get a timeout
-            max_attempts = 3
-            attempt = 1
-            msg = ""
-            while attempt <= max_attempts:
-                test_passed[i], msg = self.compile_java(dest_test_file, test_temp_dir)
-                
-                if msg != "TIMEOUT" or attempt >= max_attempts:
-                    break
-                    
-                print(f"Timeout detected for test {i+1}, attempt {attempt} of {max_attempts}. Retrying...")
-                attempt += 1
-            test_result_obj = Test(self.TEST_NAMES[i], test_passed[i], msg)
-
-            if test_passed[i]:
-                # Compare output with expected output
-                expected_file = os.path.join(self.input_dir, self.ASSIGNMENT_NAME, f"expectedoutput{i+1}.txt")
-                test_passed[i], error_msg = self.compare_results(msg, expected_file)
-                test_result_obj.passed = test_passed[i]
-                if test_passed[i]:
-                    msg = "PASSED"
-                else:
-                    msg = f"FAILED - {error_msg}"
-            
-            # Check for compiler missing error
-            if not test_passed[i] and "Java compiler not found" in msg:
-                print(results_message)
-                self.save_results(username, results_message)
-                return 'COMPILER_MISSING'
-            
-            # Check for runtime missing error
-            if not test_passed[i] and "Java runtime not found" in msg:
-                print(results_message)
-                self.save_results(username, results_message)
-                return 'ERROR'
-                
-            self.results.students[username].tests.append(test_result_obj)
-            test_results.append(msg+"\n")
-        
-        # Write full test results to a file in the full_output directory
-        full_output_file = os.path.join(self.full_output_path, f"{username}.txt")
-        with open(full_output_file, 'w') as f:
-            # Create a separate test directory for the full output to avoid conflicts
-            full_test_dir = os.path.join(temp_dir, self.MAIN_TEST_FOLDER)
-            
-            dest_test_file = os.path.join(full_test_dir, f"{self.TEST_FILE_NAME}.java")
-            
-            # Check for and remove package declarations from all Java files in the full test directory
-            for file in os.listdir(full_test_dir):
-                if file.endswith('.java'):
-                    file_path = os.path.join(full_test_dir, file)
-                    # We don't need to update results_message for test files
-                    self.java_remove_package(file_path, file, results_message)
-
-            _, msg = self.compile_java(dest_test_file, full_test_dir)
-            self.results.students[username].full_output = msg
-            self.results.students[username].full_output_passed, _ = self.compare_results(msg, os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/expectedoutput.txt"))
-
-            f.write(f"{msg}")
-        
-        # Format the results
-        for i in range(0, len(test_results), 2):
-            if i+1 < len(test_results):
-                results_message += f"{test_results[i]}{test_results[i+1]}\n"
-            else:
-                results_message += f"{test_results[i]}\n"
-        results_message += "\n"
-        
-        # Determine overall pass/fail status
-        status = 'PASS' if all(test_passed) else 'FAIL'
-        
-        # Print and save the results
-        print(results_message)
-        self.save_results(username, results_message)
-
-        return test_passed
+        return self.grade_submission(extraction_path, username, 'java')
     
-    def compile_csharp(self, dest_test_file, output_file, temp_dir) -> (bool, str):
+    def compile_csharp(self, dest_test_file, temp_dir) -> (bool, str):
         """
         Compile a C# source file.
         
         Args:
-            src_test_file (str): Path to the source test file
             dest_test_file (str): Path to the destination test file
-            output_file (str): Path to the output executable
             temp_dir (str): Path to the temporary directory
             
         Returns:
@@ -1161,16 +1163,13 @@ class SubmissionChecker:
             
         try:
             # Get all .cs files in this test temp directory
-            # cs_files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith('.cs')]
-            
-            # Get all .cs files in this test temp directory
             cs_files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith('.cs')]
             
-            # Create a temporary directory for compilation
-            project_dir = os.path.dirname(output_file)
+            # Generate output file path
+            output_file = os.path.join(temp_dir, 'test.exe')
             
-            # Create a temporary directory for the project
-            project_dir = os.path.dirname(output_file)
+            # Create a temporary directory for compilation
+            project_dir = temp_dir
             
             # Create a simple project file
             csproj_path = os.path.join(temp_dir, "TestProject.csproj")
@@ -1181,12 +1180,13 @@ class SubmissionChecker:
                 f.write('    <TargetFramework>net8.0</TargetFramework>\n')
                 f.write('    <ImplicitUsings>enable</ImplicitUsings>\n')
                 f.write('    <Nullable>enable</Nullable>\n')
+                f.write('    <WarningLevel>0</WarningLevel>\n')
                 f.write('  </PropertyGroup>\n')
                 f.write('</Project>\n')
             
-            # Compile using dotnet build
+            # Compile using dotnet build with warning suppression but showing detailed errors
             compile_process = subprocess.run(
-                ['dotnet', 'build', csproj_path, '-c', 'Release'], 
+                ['dotnet', 'build', csproj_path, '-c', 'Release', '--verbosity', 'quiet'], 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE,
                 text=True,
@@ -1207,7 +1207,7 @@ class SubmissionChecker:
             # Run using dotnet run with a 15-minute timeout
             try:
                 run_process = subprocess.run(
-                    ['dotnet', 'run', '--project', csproj_path, '-c', 'Release'], 
+                    ['dotnet', 'run', '--project', csproj_path, '-c', 'Release', '--verbosity', 'quiet'], 
                     stdout=subprocess.PIPE, 
                     stderr=subprocess.PIPE,
                     text=True,
@@ -1233,132 +1233,12 @@ class SubmissionChecker:
         
         Args:
             extraction_path (str): Path to the extracted files
-            student_name (str): Name of the student
+            username (str): Name of the student
             
         Returns:
-            str: Pass/fail status ('PASS', 'FAIL', 'ERROR', or 'COMPILER_MISSING')
+            list or str: Test results or status code
         """
-        # Results message
-        results_message = f"Grading C# submission for {self.results.students[username].get_full_name()}\n\n"
-        
-        # Required implementation files
-        required_files = [f"{file_name}.cs" for file_name in self.REQUIRED_FILE_NAMES]
-                
-        # Test directory
-        test_dir = os.path.join(self.input_dir, f'{self.ASSIGNMENT_NAME}/C#')
-        
-        # Check if .NET SDK is available
-        try:
-            check_compiler = subprocess.run(
-                ['dotnet', '--version'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            if check_compiler.returncode != 0:
-                results_message += ".NET SDK not found on this system. Cannot compile C# code.\n"
-                results_message += "To grade C# submissions, please install .NET SDK: https://dotnet.microsoft.com/download\n"
-                print(results_message)
-                self.save_results(username, results_message)
-                return 'COMPILER_MISSING'
-                
-        except Exception as e:
-            results_message += f"Error checking for .NET SDK: {str(e)}\n"
-            print(results_message)
-            self.save_results(username, results_message)
-            return 'ERROR'
-        
-        # Set up testing environment
-        result = self.setup_testing_environment(extraction_path, required_files, test_dir, username, ".cs", results_message)
-        if isinstance(result, tuple):
-            temp_dir, results_message = result
-        else:
-            # If result is not a tuple, it's a status code indicating an error
-            return result
-        
-        # Test results
-        test_results = []
-        test_passed = [False] * self.NUM_TEST_FILES  # Track which tests passed
-        
-        # For each test file
-        for i in range(self.NUM_TEST_FILES):
-            test_results.append(f"Test {i+1}: ")
-            
-            # Create a separate test directory for each test to avoid naming conflicts
-            test_temp_dir = os.path.join(temp_dir, f"test_{i+1}")
-            
-            # Get the full path to the test file in the test directory
-            dest_test_file = os.path.join(test_temp_dir, f"{self.TEST_FILE_NAME}.cs")
-            output_file = os.path.join(test_temp_dir, f'test.exe')
-            
-            # Try up to 3 times if we get a timeout
-            max_attempts = 3
-            attempt = 1
-            msg = ""
-            while attempt <= max_attempts:
-                test_passed[i], msg = self.compile_csharp(dest_test_file, output_file, test_temp_dir)
-                
-                if msg != "TIMEOUT" or attempt >= max_attempts:
-                    break
-                    
-                print(f"Timeout detected for test {i+1}, attempt {attempt} of {max_attempts}. Retrying...")
-                attempt += 1
-            test_result_obj = Test(self.TEST_NAMES[i], test_passed[i], msg)
-            
-            if test_passed[i]:
-                # Compare output with expected output
-                test_passed[i], error_msg = self.compare_results(msg, os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/expectedoutput{i+1}.txt"))
-                test_result_obj.passed = test_passed[i]
-                if test_passed[i]:
-                    msg = "PASSED"
-                else:
-                    msg = f"FAILED - {error_msg}"
-            
-            # Check for compiler missing error
-            if not test_passed[i] and "Mono C# compiler not found" in msg:
-                print(results_message)
-                self.save_results(username, results_message)
-                return 'COMPILER_MISSING'
-            
-            # Check for runtime missing error
-            if not test_passed[i] and "Mono runtime not found" in msg:
-                print(results_message)
-                self.save_results(username, results_message)
-                return 'ERROR'
-            
-            self.results.students[username].tests.append(test_result_obj)
-            test_results.append(msg+'\n')
-        
-        # Write full test results to a file in the full_output directory
-        full_output_file = os.path.join(self.full_output_path, f"{username}.txt")
-        with open(full_output_file, 'w') as f:
-            # Create a separate test directory for the full output to avoid conflicts
-            full_test_dir = os.path.join(temp_dir, self.MAIN_TEST_FOLDER)
-            
-            # Compile the test file
-            output_file = os.path.join(full_test_dir, f'test_full.exe')
-            dest_test_file = os.path.join(full_test_dir, f"{self.TEST_FILE_NAME}.cs")
-
-            _, msg = self.compile_csharp(dest_test_file, output_file, full_test_dir)
-            self.results.students[username].full_output = msg
-            self.results.students[username].full_output_passed, _ = self.compare_results(msg, os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/expectedoutput.txt"))
-
-            f.write(f"{msg}")
-        
-        # Format the results
-        for i in range(0, len(test_results), 2):
-            if i+1 < len(test_results):
-                results_message += f"{test_results[i]}{test_results[i+1]}"
-            else:
-                results_message += f"{test_results[i]}"
-        results_message += "\n"
-                
-        # Print and save the results
-        print(results_message)
-        self.save_results(username, results_message)
-        
-        return test_passed
+        return self.grade_submission(extraction_path, username, 'csharp')
     
     def run(self):
         """

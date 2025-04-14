@@ -10,6 +10,7 @@ class HTMLGenerator:
         self.test_names = test_names
         self.results = results
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.output_dir = os.path.join(self.script_dir, "output")
         
     def read_template(self, filename: str) -> str:
         """Read template file content."""
@@ -80,10 +81,23 @@ class HTMLGenerator:
         """Generate expanded content showing test details."""
         content = []
         
-        # Add file types if present
+        # Check for and read student notes
+        notes_path = os.path.join(self.output_dir, "notes", f"{student.username}.txt")
+        notes_content = ""
+        if os.path.exists(notes_path):
+            try:
+                with open(notes_path, 'r') as notes_file:
+                    notes_content = notes_file.read()
+            except Exception as e:
+                notes_content = f"Error reading notes: {str(e)}"
+        
+        # Format notes with HTML line breaks
+        notes_content_html = notes_content.replace('\n', '<br>')
+        
         content.append(f"""
         <div class="row">
             <div class="left-content">Notes: </div>
+            <div class="right-content">{notes_content_html}</div>
         </div>""")
             
         content.append(f"""
