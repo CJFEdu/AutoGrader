@@ -843,7 +843,6 @@ class SubmissionChecker:
                 error_msg = f"Compilation failed with the following errors:\n{error_output}"
                 return (False, f"FAILED - Compilation Error\n{error_output}")
             
-            # Run the compiled test with a 15-minute timeout
             try:
                 run_process = subprocess.run(
                     [output_file], 
@@ -851,12 +850,16 @@ class SubmissionChecker:
                     stderr=subprocess.PIPE,
                     text=True,
                     cwd=temp_dir,
-                    timeout=900  # 15 minutes in seconds
+                    timeout=Config.TIMEOUT 
                 )
             except subprocess.TimeoutExpired:
                 return (False, "TIMEOUT")
+
+            return_test = run_process.stdout
+            if run_process.stderr:
+                return_test += "\n" + run_process.stderr
             
-            return (True, run_process.stdout)
+            return (True, return_test)
                 
         except Exception as e:
             return (False, f"ERROR - {str(e)}")
@@ -1108,7 +1111,7 @@ class SubmissionChecker:
                     stderr=subprocess.PIPE,
                     text=True,
                     cwd=temp_dir,
-                    timeout=900  # 15 minutes in seconds
+                    timeout=Config.TIMEOUT
                 )
             except subprocess.TimeoutExpired:
                 return (False, "TIMEOUT")
@@ -1204,20 +1207,36 @@ class SubmissionChecker:
                 error_msg = f"Compilation failed with the following errors:\n{error_output}"
                 return (False, f"FAILED - Compilation Error\n{error_output}")
             
+            # with open(csproj_path, 'w') as f:
+            #     f.write('<Project Sdk="Microsoft.NET.Sdk">\n')
+            #     f.write('  <PropertyGroup>\n')
+            #     f.write('    <OutputType>Exe</OutputType>\n')
+            #     f.write('    <TargetFramework>net8.0</TargetFramework>\n')
+            #     f.write('    <ImplicitUsings>enable</ImplicitUsings>\n')
+            #     f.write('    <Nullable>enable</Nullable>\n')
+            #     f.write('    <WarningLevel>1</WarningLevel>\n')
+            #     f.write('  </PropertyGroup>\n')
+            #     f.write('</Project>\n')
+
+        
             # Run using dotnet run with a 15-minute timeout
             try:
                 run_process = subprocess.run(
-                    ['dotnet', 'run', '--project', csproj_path, '-c', 'Release', '--verbosity', 'quiet'], 
+                    ['dotnet', 'run', '--project', csproj_path, '-c', 'Release', '--verbosity', 'normal', '--no-build'], 
                     stdout=subprocess.PIPE, 
                     stderr=subprocess.PIPE,
                     text=True,
                     cwd=temp_dir,
-                    timeout=900  # 15 minutes in seconds
+                    timeout=Config.TIMEOUT
                 )
             except subprocess.TimeoutExpired:
                 return (False, "TIMEOUT")
-            
-            return (True, run_process.stdout)
+
+            return_text = run_process.stdout
+            if run_process.stderr:
+                return_text += "\n" + run_process.stderr
+
+            return (True, return_text)
                 
         except FileNotFoundError as e:
             if 'dotnet' in str(e):

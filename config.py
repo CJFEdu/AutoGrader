@@ -7,18 +7,19 @@ class Config:
     CLASS_NAME = "CompSci 233"
     SECTION = "Section 001"
 
-    ASSIGNMENT_NAME = "PA2"
-    REQUIRED_FILE_NAMES = ["BinarySearchApplications", "LinkedList", "DynamicArray"]
-    PROVIDED_FILE_NAMES = ["ListNode"]
+    ASSIGNMENT_NAME = "PA4"
+    REQUIRED_FILE_NAMES = ["BST", "HashingWithChaining", "HashingWithProbing"]
+    PROVIDED_FILE_NAMES = ["BSTNode"]
     OUTPUT_FILE_NAME = "ExpectedOutput.txt"
 
     TEST_HEADERS = [
-        "****************** Finding Predecessor ******************",
-        "****************** Test Linked List Correctness ******************",
-        "****************** Test Dynamic Array Correctness ******************"
+        "****************** Hashing with Chaining ******************",
+        "****************** Hashing with Probing ******************",
+        "****************** BST ******************"
     ]
     SEARCH_PATTERN_USE_FIRST_NAME_FIRST = True
     CLEAN_START = False
     TIME_CHECK_STRINGS = ["End Test Time"]    
     IGNORE_NAMES = []
+    TIMEOUT = 10
 
