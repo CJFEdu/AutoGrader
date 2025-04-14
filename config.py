@@ -6,10 +6,12 @@ class Config:
     """
     CLASS_NAME = "CompSci 233"
     SECTION = "Section 001"
+
     ASSIGNMENT_NAME = "PA2"
     REQUIRED_FILE_NAMES = ["BinarySearchApplications", "LinkedList", "DynamicArray"]
     PROVIDED_FILE_NAMES = ["ListNode"]
     OUTPUT_FILE_NAME = "ExpectedOutput.txt"
+
     TEST_HEADERS = [
         "****************** Finding Predecessor ******************",
         "****************** Test Linked List Correctness ******************",
