@@ -863,6 +863,37 @@ class SubmissionChecker:
                 
         except Exception as e:
             return (False, f"ERROR - {str(e)}")
+
+    def clean_msg_paths(self, msg):
+        """
+        Remove all paths from messages leaving just the filename
+        """
+        if not msg or not isinstance(msg, str):
+            return msg
+            
+        # Use a simpler approach to avoid regex performance issues
+        # Split the message by lines and process each line
+        lines = msg.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            # Replace Unix-style paths
+            if '/' in line:
+                parts = line.split('/')
+                if parts:
+                    # Keep the last part (filename)
+                    line = parts[-1]
+            
+            # Replace Windows-style paths
+            if '\\' in line:
+                parts = line.split('\\')
+                if parts:
+                    # Keep the last part (filename)
+                    line = parts[-1]
+                    
+            cleaned_lines.append(line)
+            
+        return '\n'.join(cleaned_lines)
     
     def grade_submission(self, extraction_path, username, language):
         """
@@ -981,7 +1012,9 @@ class SubmissionChecker:
                     
                 print(f"Timeout detected for test {i+1}, attempt {attempt} of {max_attempts}. Retrying...")
                 attempt += 1
-                
+
+            msg = self.clean_msg_paths(msg)
+
             test_result_obj = Test(self.TEST_NAMES[i], test_passed[i], msg)
             
             if test_passed[i]:
@@ -1031,6 +1064,7 @@ class SubmissionChecker:
             # All compile functions now take the same parameters
             _, msg = compile_func(dest_test_file, full_test_dir)
                 
+            msg = self.clean_msg_paths(msg)
             self.results.students[username].full_output = msg
             self.results.students[username].full_output_passed, _ = self.compare_results(msg, os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/expectedoutput.txt"))
 
@@ -1206,20 +1240,7 @@ class SubmissionChecker:
                 # Create a detailed error message
                 error_msg = f"Compilation failed with the following errors:\n{error_output}"
                 return (False, f"FAILED - Compilation Error\n{error_output}")
-            
-            # with open(csproj_path, 'w') as f:
-            #     f.write('<Project Sdk="Microsoft.NET.Sdk">\n')
-            #     f.write('  <PropertyGroup>\n')
-            #     f.write('    <OutputType>Exe</OutputType>\n')
-            #     f.write('    <TargetFramework>net8.0</TargetFramework>\n')
-            #     f.write('    <ImplicitUsings>enable</ImplicitUsings>\n')
-            #     f.write('    <Nullable>enable</Nullable>\n')
-            #     f.write('    <WarningLevel>1</WarningLevel>\n')
-            #     f.write('  </PropertyGroup>\n')
-            #     f.write('</Project>\n')
 
-        
-            # Run using dotnet run with a 15-minute timeout
             try:
                 run_process = subprocess.run(
                     ['dotnet', 'run', '--project', csproj_path, '-c', 'Release', '--verbosity', 'normal', '--no-build'], 

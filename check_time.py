@@ -359,6 +359,8 @@ class TimeChecker(SubmissionChecker):
                     notes_content = notes_content.replace("Time Test failed!", time_result.strip())
                 else:
                     # Append time test result to file
+                    if notes_content:
+                        notes_content += "\n"
                     notes_content += time_result
                 
                 with open(notes_file, 'w') as f:

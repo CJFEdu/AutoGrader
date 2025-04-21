@@ -25,3 +25,7 @@
 ### Step 6: Update TestCorrectness files
  - file_prep.py creates copies of TestCorrectness files for each language and each test
  - Go into each new TestCorrectness file and comment out the other tests
+
+### Step 7: Update Time Test
+ - At the bottom of the TestTime files and a printout to check for file completion
+ - Add that line to to the config.py TIME_CHECK_STRINGS
