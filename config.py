@@ -10,6 +10,7 @@ class Config:
     ASSIGNMENT_NAME = "PA4"
     REQUIRED_FILE_NAMES = ["BST", "HashingWithChaining", "HashingWithProbing"]
     PROVIDED_FILE_NAMES = ["BSTNode"]
+    RESOURCE_FILE_NAMES = ["mis1.txt", "mis2.txt", "mis3.txt", "mis4.txt"]
     OUTPUT_FILE_NAME = "ExpectedOutput.txt"
 
     TEST_HEADERS = [

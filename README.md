@@ -3,7 +3,7 @@
 ## Implementation Steps
 
 ### Step 1: Project Setup
-- Created the `input` directory to store student submissions and test cases
+- Create the `input` directory to store student submissions and test cases
 
 ### Step 2: Copy files
  - Copy PA zip file and submissions zip file to `input` directory

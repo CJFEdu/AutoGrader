@@ -524,6 +524,14 @@ class SubmissionChecker:
             dest_file = os.path.join(test_temp_dir, provided_file_with_ext)
             if os.path.exists(source_file) and (Config.CLEAN_START or not os.path.exists(dest_file)):
                 shutil.copy(source_file, test_temp_dir)
+
+        for resource_file in Config.RESOURCE_FILE_NAMES:
+            #copy resource files
+            source_file = os.path.join(test_dir, resource_file)
+            dest_file = os.path.join(test_temp_dir, resource_file)
+            if os.path.exists(source_file) and (Config.CLEAN_START or not os.path.exists(dest_file)):
+                shutil.copy(source_file, test_temp_dir)
+            
         
         return results_message
     
