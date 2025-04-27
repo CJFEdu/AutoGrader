@@ -53,6 +53,13 @@ class SubmissionChecker:
         self.results_path = os.path.join(self.output_dir, "results")
         self.full_output_path = os.path.join(self.output_dir, "full_output")
         self.notes_path = os.path.join(self.output_dir, "notes")
+
+        # Map language to file extension, compiler function, and language directory
+        self.lang_map = {
+            'cpp': ('.h', '.cpp', self.compile_cpp, 'CPP'),
+            'java': ('.java', '.java', self.compile_java, 'JAVA'),
+            'csharp': ('.cs', '.cs', self.compile_csharp, 'C#')
+        }
         
         # Initialize Results object (will populate TEST_NAMES later)
         self.results = Results([])
@@ -472,21 +479,26 @@ class SubmissionChecker:
         
         return results_message
     
-    def copy_test_files(self, test_dir, test_file, test_temp_dir, found_files, extraction_path, results_message):
+    def copy_test_files(self, language, test_file, test_temp_dir, found_files, results_message):
         """
         Copy test files, student implementation files, and provided files to the test directory.
         
         Args:
-            test_dir (str): Directory containing the test files
+            language (str): Language of the submission
             test_file (str): Name of the test file to copy
             test_temp_dir (str): Temporary directory to copy files to
             found_files (dict): Dictionary of found student implementation files
-            extraction_path (str): Path to the extracted submission
             results_message (str): Current results message to append to
             
         Returns:
             str: Updated results message
         """
+
+        file_ext, test_ext, compile_func, language_dir = self.lang_map[language]
+        test_home_dir = os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}")
+        test_dir = os.path.join(test_home_dir, language_dir)
+        
+
         # Copy the test file
         source_file = os.path.join(test_dir, test_file)
         
@@ -508,18 +520,8 @@ class SubmissionChecker:
         
         # Copy provided files
         for provided_file in Config.PROVIDED_FILE_NAMES:
-            # Determine language from test_dir path
-            if '/JAVA' in test_dir:
-                provided_file_with_ext = f"{provided_file}.java"
-            elif '/CPP' in test_dir:
-                provided_file_with_ext = f"{provided_file}.h"
-            elif '/C#' in test_dir:
-                provided_file_with_ext = f"{provided_file}.cs"
-            else:
-                # Skip if language is not recognized
-                results_message += f"Skipping provided file: {provided_file}\n"
-                continue
-            
+            provided_file_with_ext = f"{provided_file}{file_ext}"
+
             source_file = os.path.join(test_dir, provided_file_with_ext)
             dest_file = os.path.join(test_temp_dir, provided_file_with_ext)
             if os.path.exists(source_file) and (Config.CLEAN_START or not os.path.exists(dest_file)):
@@ -527,7 +529,7 @@ class SubmissionChecker:
 
         for resource_file in Config.RESOURCE_FILE_NAMES:
             #copy resource files
-            source_file = os.path.join(test_dir, resource_file)
+            source_file = os.path.join(test_home_dir, resource_file)
             dest_file = os.path.join(test_temp_dir, resource_file)
             if os.path.exists(source_file) and (Config.CLEAN_START or not os.path.exists(dest_file)):
                 shutil.copy(source_file, test_temp_dir)
@@ -535,11 +537,12 @@ class SubmissionChecker:
         
         return results_message
     
-    def setup_testing_environment(self, extraction_path, required_files, test_dir, username, file_extension, results_message):
+    def setup_testing_environment(self, language, extraction_path, required_files, username, results_message):
         """
         Set up the testing environment by finding required files and copying test files.
         
         Args:
+            language (str): Language of the submission
             extraction_path (str): Path to the extracted submission
             required_files (list): List of required implementation files
             test_dir (str): Directory containing the test files
@@ -550,6 +553,10 @@ class SubmissionChecker:
             If successful: A tuple containing (temp_dir, found_files, updated_results_message)
             If failed: A status code string ('FAIL' or 'ERROR')
         """
+
+        # Get language details
+        file_ext, test_ext, compile_func, language_dir = self.lang_map[language]
+        
         # Check if student has implemented the required files
         missing_files = []
         found_files = {}
@@ -588,7 +595,7 @@ class SubmissionChecker:
         try:
             # Create a directory for each test
             for i in range(1, self.NUM_TEST_FILES + 1):
-                test_file = f"{self.TEST_FILE_NAME}{i}{file_extension}"
+                test_file = f"{self.TEST_FILE_NAME}{i}{test_ext}"
                 test_temp_dir = os.path.join(temp_dir, f"test_{i}")
                 # Only remove the directory if CLEAN_START is true
                 if Config.CLEAN_START and os.path.exists(test_temp_dir):
@@ -598,7 +605,7 @@ class SubmissionChecker:
                     os.makedirs(test_temp_dir, exist_ok=True)
                 
                 # Copy test files, student files, and provided files
-                results_message = self.copy_test_files(test_dir, test_file, test_temp_dir, found_files, extraction_path, results_message)
+                results_message = self.copy_test_files(language, test_file, test_temp_dir, found_files, results_message)
 
                 
             # Create a directory for the full test
@@ -611,8 +618,8 @@ class SubmissionChecker:
                 os.makedirs(full_test_dir, exist_ok=True)
             
             # Copy test files, student files, and provided files for the full test
-            full_test_file = f"{self.TEST_FILE_NAME}" + file_extension
-            results_message += self.copy_test_files(test_dir, full_test_file, full_test_dir, found_files, extraction_path, results_message)
+            full_test_file = f"{self.TEST_FILE_NAME}" + test_ext
+            results_message += self.copy_test_files(language, full_test_file, full_test_dir, found_files, results_message)
         except Exception as e:
             results_message += f"Error copying files: {str(e)}\n"
             print(f"Error copying files: {str(e)}\n")
@@ -915,17 +922,11 @@ class SubmissionChecker:
         Returns:
             list or bool: Test results
         """
-        # Map language to file extension and compiler function
-        lang_map = {
-            'cpp': ('.h', '.cpp', self.compile_cpp),
-            'java': ('.java', '.java', self.compile_java),
-            'csharp': ('.cs', '.cs', self.compile_csharp)
-        }
         
-        if language not in lang_map:
+        if language not in self.lang_map:
             raise ValueError(f"Unsupported language: {language}")
             
-        file_ext, test_ext, compile_func = lang_map[language]
+        file_ext, test_ext, compile_func, language_dir = self.lang_map[language]
         
         # Results collection
         results_message = f"Grading {language.upper()} submission for {self.results.students[username].get_full_name()}\n\n"
@@ -933,15 +934,6 @@ class SubmissionChecker:
         # Required implementation files
         required_files = [f"{file_name}{file_ext}" for file_name in self.REQUIRED_FILE_NAMES]
         
-        # Get language-specific directory
-        lang_dir_map = {
-            'cpp': 'CPP',
-            'java': 'JAVA',
-            'csharp': 'C#'
-        }
-        
-        # Test directory
-        test_dir = os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/{lang_dir_map[language]}")
         
         # Special handling for Java package declarations
         preprocess_func = None
@@ -979,7 +971,7 @@ class SubmissionChecker:
                 return 'ERROR'
                 
         # Set up testing environment
-        result = self.setup_testing_environment(extraction_path, required_files, test_dir, username, test_ext, results_message)
+        result = self.setup_testing_environment(language, extraction_path, required_files, username, results_message)
         if isinstance(result, tuple):
             temp_dir, results_message = result
         else:
@@ -1021,7 +1013,6 @@ class SubmissionChecker:
                 print(f"Timeout detected for test {i+1}, attempt {attempt} of {max_attempts}. Retrying...")
                 attempt += 1
 
-            msg = self.clean_msg_paths(msg)
 
             test_result_obj = Test(self.TEST_NAMES[i], test_passed[i], msg)
             
@@ -1033,6 +1024,8 @@ class SubmissionChecker:
                     msg = "PASSED"
                 else:
                     msg = f"FAILED - {error_msg}"
+            else:
+                msg = self.clean_msg_paths(msg)
             
             # Check for compiler missing error
             if not test_passed[i]:
@@ -1070,11 +1063,12 @@ class SubmissionChecker:
                         preprocess_func(file_path, file, results_message)
             
             # All compile functions now take the same parameters
-            _, msg = compile_func(dest_test_file, full_test_dir)
+            test_passed, msg = compile_func(dest_test_file, full_test_dir)
                 
-            msg = self.clean_msg_paths(msg)
-            self.results.students[username].full_output = msg
             self.results.students[username].full_output_passed, _ = self.compare_results(msg, os.path.join(self.input_dir, f"{self.ASSIGNMENT_NAME}/expectedoutput.txt"))
+            if not test_passed:
+                msg = self.clean_msg_paths(msg)
+            self.results.students[username].full_output = msg
 
             f.write(f"{msg}")
         
@@ -1248,6 +1242,13 @@ class SubmissionChecker:
                 # Create a detailed error message
                 error_msg = f"Compilation failed with the following errors:\n{error_output}"
                 return (False, f"FAILED - Compilation Error\n{error_output}")
+
+            compile_dir = os.path.join(temp_dir, 'bin', 'Release', 'net8.0')
+            for file in Config.RESOURCE_FILE_NAMES:
+                source_file = os.path.join(temp_dir, file)
+                dest_file = os.path.join(compile_dir, file)
+                if os.path.exists(source_file) and (Config.CLEAN_START or not os.path.exists(dest_file)):
+                    shutil.copy(source_file, compile_dir)
 
             try:
                 run_process = subprocess.run(

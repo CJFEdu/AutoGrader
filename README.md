@@ -18,6 +18,7 @@
  - Update config.py ASSIGNMENT_NAME with the name of the assignment
  - Update config.py REQUIRED_FILE_NAMES with the names of the files submitted by the students
  - Update config.py PROVIDED_FILE_NAMES with the names of the files provided by the instructor
+ - Update config.py RESOURCE_FILE_NAMES with the names of the resource files
  
 ### Step 5: Run the File Prep Script
  - Run the file_prep.py script
