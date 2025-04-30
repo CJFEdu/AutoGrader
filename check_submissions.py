@@ -478,6 +478,26 @@ class SubmissionChecker:
             results_message = results_message.replace(old_line, new_line)
         
         return results_message
+
+    def cpp_preprocess(self, file_path, file_name, results_message):
+        """
+        Ensure #include <limits> and #include <cstdint> are present at the top of C++ header files.
+        Args:
+            file_path (str): Path to the C++ header file
+            file_name (str): Name of the file (for results message)
+            results_message (str): Current results message
+        """
+        includes = ["#include <limits>\n", "#include <cstdint>\n", "#include <climits>\n"]
+        try:
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+            if lines and (lines[0].strip() in includes):
+                return results_message  # Already has the includes, no need to modify
+            with open(file_path, 'w') as f:
+                f.writelines(includes + lines)
+        except Exception as e:
+            results_message += f"Error preprocessing {file_name}: {str(e)}\n"
+        return results_message
     
     def copy_test_files(self, language, test_file, test_temp_dir, found_files, results_message):
         """
@@ -947,6 +967,16 @@ class SubmissionChecker:
                 self.save_results(username, results_message)
                 return 'COMPILER_MISSING'
             preprocess_func = self.java_remove_package
+        elif language == 'cpp':
+            # Check if g++ compiler is available
+            try:
+                subprocess.run(["g++", "--version"], capture_output=True, check=True)
+            except (subprocess.SubprocessError, FileNotFoundError):
+                results_message += "C++ compiler not found. Please install g++ (MinGW-w64 or similar) and ensure it's in your PATH.\n"
+                print(results_message)
+                self.save_results(username, results_message)
+                return 'COMPILER_MISSING'
+            preprocess_func = self.cpp_preprocess
         elif language == 'csharp':
             # Check if .NET SDK is available
             try:
@@ -993,7 +1023,7 @@ class SubmissionChecker:
             output_file = os.path.join(test_temp_dir, f'test')
             
             # Preprocess files if needed (e.g., Java package removal)
-            if preprocess_func and language == 'java':
+            if preprocess_func:
                 for file in os.listdir(test_temp_dir):
                     if file.endswith(file_ext):
                         file_path = os.path.join(test_temp_dir, file)
@@ -1056,7 +1086,7 @@ class SubmissionChecker:
             dest_test_file = os.path.join(full_test_dir, f"{self.TEST_FILE_NAME}{test_ext}")
 
             # Preprocess files if needed (e.g., Java package removal)
-            if preprocess_func and language == 'java':
+            if preprocess_func:
                 for file in os.listdir(full_test_dir):
                     if file.endswith(file_ext):
                         file_path = os.path.join(full_test_dir, file)
@@ -1118,7 +1148,7 @@ class SubmissionChecker:
         """
         try:
             # Compile the test file with the student's implementation
-            compile_cmd = ["javac", dest_test_file]
+            compile_cmd = ["javac", "*.java"]
             compile_result = subprocess.run(
                 compile_cmd, 
                 stdout=subprocess.PIPE, 
