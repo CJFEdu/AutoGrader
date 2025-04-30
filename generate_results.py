@@ -164,7 +164,7 @@ class HTMLGenerator:
     def save_html(self, output_path: str):
         """Save the generated HTML to a file."""
         html_content = self.generate_html()
-        with open(output_path, 'w') as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
         print(f"Results HTML saved to: {output_path}")
 
