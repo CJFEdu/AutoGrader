@@ -12,6 +12,7 @@ from config import Config
 from results import Results, Student, Test
 from config import Config
 from generate_results import generate_results_html
+import chardet
 
 class SubmissionChecker:
     """
@@ -445,6 +446,17 @@ class SubmissionChecker:
                 file.write(formatted_output)
         except Exception as e:
             print(f"Error appending to results file {file_path}: {e}")
+
+
+    def detect_encoding(self, file_path):
+        with open(file_path, 'rb') as file:
+            detector = chardet.universaldetector.UniversalDetector()
+            for line in file:
+                detector.feed(line)
+                if detector.done:
+                    break
+            detector.close()
+        return detector.result['encoding']
     
     def java_remove_package(self, file_path, file_name, results_message):
         """
@@ -459,7 +471,8 @@ class SubmissionChecker:
             str: Updated results message
         """
         # Read the file content
-        with open(file_path, 'r') as f:
+        encoding = self.detect_encoding(file_path)
+        with open(file_path, 'r', encoding=encoding) as f:
             content = f.readlines()
         
         # Check if the file has a package declaration
@@ -1148,7 +1161,7 @@ class SubmissionChecker:
         """
         try:
             # Compile the test file with the student's implementation
-            compile_cmd = ["javac", "*.java"]
+            compile_cmd = ["javac", dest_test_file]
             compile_result = subprocess.run(
                 compile_cmd, 
                 stdout=subprocess.PIPE, 
